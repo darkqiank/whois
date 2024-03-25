@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/likexian/gokit/assert"
-	"golang.org/x/net/proxy"
 )
 
 func TestVersion(t *testing.T) {
@@ -74,21 +73,37 @@ func TestWhoisFail(t *testing.T) {
 
 func TestWhois(t *testing.T) {
 	tests := []string{
-		"dubna.city",
+		"hub.inc",
+		"4good.charity",
+		"is-mega.gay",
+		"bebe.kids",
 	}
 
 	for _, v := range tests {
 		b, err := Whois(v)
-		fmt.Println(b)
+		// fmt.Println(v, err)
 		assert.Nil(t, err)
 		assert.NotEqual(t, b, "")
 	}
 
+	b, err := Whois("baidu.com")
+	fmt.Println(b)
+	fmt.Println(err)
+	assert.Nil(t, err)
 }
 
 func TestWhois2(t *testing.T) {
 
-	b, err := Whois("dubna.city", "whois.nic.ru")
+	b, err := Whois("01ss.top")
+	fmt.Println(b)
+	fmt.Println(err)
+	assert.Nil(t, err)
+}
+
+func TestWhois3(t *testing.T) {
+	c := NewClient()
+	c.SetTimeout(2 * time.Second)
+	b, err := c.Whois("01ss.top")
 	fmt.Println(b)
 	fmt.Println(err)
 	assert.Nil(t, err)
@@ -106,7 +121,7 @@ func TestNewClient(t *testing.T) {
 	_, err = c.Whois("likexian.com")
 	assert.Nil(t, err)
 
-	c.SetDialer(proxy.FromEnvironment())
+	// c.SetDialer(proxy.FromEnvironment())
 	_, err = c.Whois("likexian.com")
 	assert.Nil(t, err)
 }

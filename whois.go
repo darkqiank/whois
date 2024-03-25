@@ -20,14 +20,13 @@
 package whois
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/net/proxy"
 )
 
 const (
@@ -35,8 +34,10 @@ const (
 	defaultWhoisServer = "whois.iana.org"
 	// defaultWhoisPort is default whois port
 	defaultWhoisPort = "43"
+	// defaultElapsedTimeout
+	defaultElapsedTimeout = 15 * time.Second
 	// defaultTimeout is query default timeout
-	defaultTimeout = 30 * time.Second
+	defaultTimeout = 5 * time.Second
 	// asnPrefix is asn prefix string
 	asnPrefix = "AS"
 )
@@ -46,7 +47,7 @@ var DefaultClient = NewClient()
 
 // Client is whois client
 type Client struct {
-	dialer          proxy.Dialer
+	dialer          net.Dialer
 	timeout         time.Duration
 	elapsed         time.Duration
 	disableStats    bool
@@ -76,15 +77,15 @@ func Whois(domain string, servers ...string) (result string, err error) {
 // NewClient returns new whois client
 func NewClient() *Client {
 	return &Client{
-		dialer: &net.Dialer{
+		dialer: net.Dialer{
 			Timeout: defaultTimeout,
 		},
-		timeout: defaultTimeout,
+		timeout: defaultElapsedTimeout,
 	}
 }
 
 // SetDialer set query net dialer
-func (c *Client) SetDialer(dialer proxy.Dialer) *Client {
+func (c *Client) SetDialer(dialer net.Dialer) *Client {
 	c.dialer = dialer
 	return c
 }
@@ -141,13 +142,19 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 		port = defaultWhoisPort
 	} else {
 		ext := getExtension(domain)
-		result, err := c.rawQuery(ext, defaultWhoisServer, defaultWhoisPort)
-		if err != nil {
-			return "", fmt.Errorf("whois: query for whois server failed: %w", err)
-		}
-		server, port = getServer(result)
-		if server == "" {
-			return "", fmt.Errorf("%w: %s", ErrWhoisServerNotFound, domain)
+		if v, ok := tldToWhoisServer[ext]; ok {
+			// 如果tld存在于map中，更新server变量为map中对应的值
+			server = v
+			port = defaultWhoisPort
+		} else {
+			result, err := c.rawQuery(ext, defaultWhoisServer, defaultWhoisPort)
+			if err != nil {
+				return "", fmt.Errorf("whois: query for whois server failed: %w", err)
+			}
+			server, port = getServer(result)
+			if server == "" {
+				return "", fmt.Errorf("%w: %s", ErrWhoisServerNotFound, domain)
+			}
 		}
 	}
 
@@ -176,8 +183,7 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 // rawQuery do raw query to the server
 func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	c.elapsed = 0
-	start := time.Now()
-
+	// start := time.Now()
 	if server == "whois.arin.net" {
 		if IsASN(domain) {
 			domain = "a + " + domain
@@ -186,43 +192,38 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 		}
 	}
 
-	// See: https://github.com/likexian/whois/issues/17
-	if server == "whois.godaddy" {
-		server = "whois.godaddy.com"
+	if value, ok := whoisRewriteMap[server]; ok {
+		// 如果键存在于map中，更新server变量为map中对应的值
+		server = value
 	}
 
-	// See: https://github.com/likexian/whois/pull/30
-	if server == "porkbun.com" {
-		server = "whois.porkbun.com"
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
 
-	if server == "www.cronon.net" {
-		server = "whois.cronon.net"
-	}
+	conn, err := c.dialer.DialContext(ctx, "tcp", net.JoinHostPort(server, port))
 
-	conn, err := c.dialer.Dial("tcp", net.JoinHostPort(server, port))
 	if err != nil {
 		return "", fmt.Errorf("whois: connect to whois server failed: %w", err)
 	}
 
 	defer conn.Close()
-	c.elapsed = time.Since(start)
+	// c.elapsed = time.Since(start)
 
-	_ = conn.SetWriteDeadline(time.Now().Add(c.timeout - c.elapsed))
+	// _ = conn.SetWriteDeadline(time.Now().Add(c.timeout - c.elapsed))
 	_, err = conn.Write([]byte(domain + "\r\n"))
 	if err != nil {
 		return "", fmt.Errorf("whois: send to whois server failed: %w", err)
 	}
 
-	c.elapsed = time.Since(start)
+	// c.elapsed = time.Since(start)
 
-	_ = conn.SetReadDeadline(time.Now().Add(c.timeout - c.elapsed))
+	// _ = conn.SetReadDeadline(time.Now().Add(c.timeout - c.elapsed))
 	buffer, err := io.ReadAll(conn)
 	if err != nil {
 		return "", fmt.Errorf("whois: read from whois server failed: %w", err)
 	}
 
-	c.elapsed = time.Since(start)
+	// c.elapsed = time.Since(start)
 
 	return string(buffer), nil
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/likexian/gokit/xjson"
 	"github.com/likexian/gokit/xversion"
 	whoisparser "github.com/likexian/whois-parser"
-	"golang.org/x/net/proxy"
 )
 
 func main() {
@@ -62,8 +61,8 @@ options:
 		os.Exit(1)
 	}
 
-	text, err := whois.NewClient().
-		SetDialer(proxy.FromEnvironment()).Whois(flag.Args()[0], *server)
+	text, err := whois.NewClient().Whois(flag.Args()[0], *server)
+	// SetDialer(proxy.FromEnvironment()).Whois(flag.Args()[0], *server)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
