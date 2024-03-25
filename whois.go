@@ -192,8 +192,12 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	}
 
 	// See: https://github.com/likexian/whois/pull/30
-	if server == "porkbun.com/whois" {
+	if server == "porkbun.com" {
 		server = "whois.porkbun.com"
+	}
+
+	if server == "www.cronon.net" {
+		server = "whois.cronon.net"
 	}
 
 	conn, err := c.dialer.Dial("tcp", net.JoinHostPort(server, port))
@@ -253,12 +257,14 @@ func getServer(data string) (string, string) {
 		if start != -1 {
 			start += len(token)
 			end := strings.Index(data[start:], "\n")
+			if end == -1 { // 如果没有找到换行符，使用整个字符串
+				end = len(data[start:])
+			}
 			server := strings.TrimSpace(data[start : start+end])
-			server = strings.TrimPrefix(server, "http:")
-			server = strings.TrimPrefix(server, "https:")
-			server = strings.TrimPrefix(server, "whois:")
-			server = strings.TrimPrefix(server, "rwhois:")
-			server = strings.Trim(server, "/")
+
+			// 新增代码：从URL提取主机名
+			server = extractHostname(server)
+
 			port := defaultWhoisPort
 			if strings.Contains(server, ":") {
 				v := strings.Split(server, ":")
@@ -269,6 +275,29 @@ func getServer(data string) (string, string) {
 	}
 
 	return "", ""
+}
+
+// extractHostname 从可能的URL中提取主机名
+func extractHostname(url string) string {
+	// 移除协议头
+	url = strings.TrimPrefix(url, "http://")
+	url = strings.TrimPrefix(url, "https://")
+	url = strings.TrimPrefix(url, "whois://")
+	url = strings.TrimPrefix(url, "rwhois://")
+
+	// 截取到第一个斜杠（如果有）之前的部分
+	if slashIndex := strings.Index(url, "/"); slashIndex != -1 {
+		url = url[:slashIndex]
+	}
+
+	// 检查是否以www或www.whois开头，如果是，则替换成whois
+	if strings.HasPrefix(url, "www.whois.") {
+		url = "whois." + url[10:] // 移除www.并保留whois.以及之后的部分
+	} else if strings.HasPrefix(url, "www.") {
+		url = "whois." + url[4:] // 移除www.并加上whois.
+	}
+
+	return url
 }
 
 // IsASN returns if s is ASN

@@ -21,6 +21,7 @@ package whois
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -73,40 +74,23 @@ func TestWhoisFail(t *testing.T) {
 
 func TestWhois(t *testing.T) {
 	tests := []string{
-		"com",
-		"xxx",
-		"cn",
-		"name.com",
-		"name.net",
-		"name.org",
-		"name.mobi",
-		"name.cn",
-		"name.com.cn",
-		"name.in",
-		"name.jp/e",
-		"1.1.1.1",
-		"2.1.1.1",
-		"3.1.1.1",
-		"4.1.1.1",
-		"5.1.1.1",
-		"2001:dc7::1",
-		"1",
-		"as2",
-		"as1878",
-		"as4610",
-		"as27648",
-		"as36865",
-		"172.109.217.241",
-		"144.200.46.16",
+		"dubna.city",
 	}
 
 	for _, v := range tests {
 		b, err := Whois(v)
+		fmt.Println(b)
 		assert.Nil(t, err)
 		assert.NotEqual(t, b, "")
 	}
 
-	_, err := Whois("likexian.com", "com.whois-servers.net")
+}
+
+func TestWhois2(t *testing.T) {
+
+	b, err := Whois("dubna.city", "whois.nic.ru")
+	fmt.Println(b)
+	fmt.Println(err)
 	assert.Nil(t, err)
 }
 

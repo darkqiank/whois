@@ -1,4 +1,4 @@
-module github.com/likexian/whois
+module github.com/darkqiank/whois
 
 go 1.20
 
