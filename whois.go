@@ -203,7 +203,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	conn, err := c.dialer.DialContext(ctx, "tcp", net.JoinHostPort(server, port))
 
 	if err != nil {
-		return "", fmt.Errorf("whois: connect to whois server failed: %w", err)
+		return "", fmt.Errorf("whois: connect to whois server (%s) failed: %w", server, err)
 	}
 
 	defer conn.Close()
@@ -212,7 +212,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	// _ = conn.SetWriteDeadline(time.Now().Add(c.timeout - c.elapsed))
 	_, err = conn.Write([]byte(domain + "\r\n"))
 	if err != nil {
-		return "", fmt.Errorf("whois: send to whois server failed: %w", err)
+		return "", fmt.Errorf("whois: send to whois server (%s) failed: %w", server, err)
 	}
 
 	// c.elapsed = time.Since(start)
@@ -220,7 +220,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	// _ = conn.SetReadDeadline(time.Now().Add(c.timeout - c.elapsed))
 	buffer, err := io.ReadAll(conn)
 	if err != nil {
-		return "", fmt.Errorf("whois: read from whois server failed: %w", err)
+		return "", fmt.Errorf("whois: read from whois server (%s) failed: %w", server, err)
 	}
 
 	// c.elapsed = time.Since(start)
