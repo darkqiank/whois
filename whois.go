@@ -280,6 +280,8 @@ func getServer(data string) (string, string) {
 
 // extractHostname 从可能的URL中提取主机名
 func extractHostname(url string) string {
+	// 转小写
+	url = strings.ToLower(url)
 	// 移除协议头
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "https://")

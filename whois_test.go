@@ -94,7 +94,7 @@ func TestWhois(t *testing.T) {
 
 func TestWhois2(t *testing.T) {
 
-	b, err := Whois("01ss.top")
+	b, err := Whois("eyetechsol.com")
 	fmt.Println(b)
 	fmt.Println(err)
 	assert.Nil(t, err)
