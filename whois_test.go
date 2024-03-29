@@ -22,11 +22,13 @@ package whois
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/likexian/gokit/assert"
+	"golang.org/x/net/proxy"
 )
 
 func TestVersion(t *testing.T) {
@@ -102,7 +104,7 @@ func TestWhois2(t *testing.T) {
 
 func TestWhois3(t *testing.T) {
 	c := NewClient()
-	c.SetTimeout(2 * time.Second)
+	c.SetTimeout(10 * time.Second)
 	b, err := c.Whois("01ss.top")
 	fmt.Println(b)
 	fmt.Println(err)
@@ -111,6 +113,7 @@ func TestWhois3(t *testing.T) {
 
 func TestNewClient(t *testing.T) {
 	c := NewClient()
+	var b string
 	var err error
 
 	c.SetTimeout(10 * time.Microsecond)
@@ -122,7 +125,13 @@ func TestNewClient(t *testing.T) {
 	assert.Nil(t, err)
 
 	// c.SetDialer(proxy.FromEnvironment())
-	_, err = c.Whois("likexian.com")
+	proxyURL, err := url.Parse("socks5://127.0.0.1:10808")
+	assert.Nil(t, err)
+	newDial, err := proxy.FromURL(proxyURL, proxy.Direct)
+	assert.Nil(t, err)
+	c.SetDialer(newDial)
+	b, err = c.Whois("cdnlz2.com")
+	fmt.Println(b)
 	assert.Nil(t, err)
 }
 

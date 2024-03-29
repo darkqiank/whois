@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 const (
@@ -47,7 +49,7 @@ var DefaultClient = NewClient()
 
 // Client is whois client
 type Client struct {
-	dialer          net.Dialer
+	dialer          proxy.Dialer
 	timeout         time.Duration
 	elapsed         time.Duration
 	disableStats    bool
@@ -77,7 +79,7 @@ func Whois(domain string, servers ...string) (result string, err error) {
 // NewClient returns new whois client
 func NewClient() *Client {
 	return &Client{
-		dialer: net.Dialer{
+		dialer: &net.Dialer{
 			Timeout: defaultTimeout,
 		},
 		timeout: defaultElapsedTimeout,
@@ -85,7 +87,7 @@ func NewClient() *Client {
 }
 
 // SetDialer set query net dialer
-func (c *Client) SetDialer(dialer net.Dialer) *Client {
+func (c *Client) SetDialer(dialer proxy.Dialer) *Client {
 	c.dialer = dialer
 	return c
 }
@@ -200,8 +202,8 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
-	conn, err := c.dialer.DialContext(ctx, "tcp", net.JoinHostPort(server, port))
-
+	// conn, err := c.dialer.DialContext(ctx, "tcp", net.JoinHostPort(server, port))
+	conn, err := dialContext(ctx, c.dialer, "tcp", net.JoinHostPort(server, port))
 	if err != nil {
 		return "", fmt.Errorf("whois: connect to whois server (%s) failed: %w", server, err)
 	}
@@ -311,4 +313,29 @@ func IsASN(s string) bool {
 	_, err := strconv.Atoi(s)
 
 	return err == nil
+}
+
+// dialContext 尝试使用给定的代理Dialer和context来建立连接
+func dialContext(ctx context.Context, dialer proxy.Dialer, network, addr string) (net.Conn, error) {
+	// 注意：这里仅为示例，实际上golang.org/x/net/proxy包的Dialer可能不直接支持context。
+	// 如果你的代理Dialer支持DialContext，直接使用它。
+	// 否则，你需要根据具体的Dialer实现调整此函数。
+	ch := make(chan net.Conn, 1)
+	var dialErr error
+	go func() {
+		conn, err := dialer.Dial(network, addr)
+		if err != nil {
+			dialErr = err
+			ch <- nil
+			return
+		}
+		ch <- conn
+	}()
+
+	select {
+	case conn := <-ch:
+		return conn, dialErr
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
