@@ -38,8 +38,8 @@ func TestVersion(t *testing.T) {
 }
 
 func TestClient_SetDisableReferral(t *testing.T) {
+	Init("config/test.json")
 	client := NewClient()
-
 	resp, err := client.Whois("likexian.com")
 	assert.Nil(t, err)
 	assert.Equal(t, strings.Count(resp, "Domain Name: LIKEXIAN.COM"), 2)
@@ -103,6 +103,7 @@ func TestWhois2(t *testing.T) {
 }
 
 func TestWhois3(t *testing.T) {
+	Init("")
 	c := NewClient()
 	c.SetTimeout(10 * time.Second)
 	b, err := c.Whois("01ss.top")

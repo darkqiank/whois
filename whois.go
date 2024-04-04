@@ -26,9 +26,15 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/proxy"
+)
+
+var (
+	serverMapInstance *serverMap
+	once              sync.Once
 )
 
 const (
@@ -54,6 +60,8 @@ type Client struct {
 	elapsed         time.Duration
 	disableStats    bool
 	disableReferral bool
+
+	serverMap *serverMap
 }
 
 // Version returns package version
@@ -82,7 +90,8 @@ func NewClient() *Client {
 		dialer: &net.Dialer{
 			Timeout: defaultTimeout,
 		},
-		timeout: defaultElapsedTimeout,
+		timeout:   defaultElapsedTimeout,
+		serverMap: serverMapInstance,
 	}
 }
 
@@ -144,7 +153,7 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 		port = defaultWhoisPort
 	} else {
 		ext := getExtension(domain)
-		if v, ok := tldToWhoisServer[ext]; ok {
+		if v, ok := c.serverMap.GetWhoisServer(ext); ok {
 			// 如果tld存在于map中，更新server变量为map中对应的值
 			server = v
 			port = defaultWhoisPort
@@ -157,6 +166,8 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 			if server == "" {
 				return "", fmt.Errorf("%w: %s", ErrWhoisServerNotFound, domain)
 			}
+			// 将最新查询到的tld服务器存到map中
+			c.serverMap.SetWhoisServer(ext, server)
 		}
 	}
 
@@ -194,7 +205,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 		}
 	}
 
-	if value, ok := whoisRewriteMap[server]; ok {
+	if value, ok := c.serverMap.GetRewriteServer(server); ok {
 		// 如果键存在于map中，更新server变量为map中对应的值
 		server = value
 	}
@@ -338,4 +349,16 @@ func dialContext(ctx context.Context, dialer proxy.Dialer, network, addr string)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// sync.Once的作用是确保在多线程环境下一个操作只被执行一次
+func Init(configFile string) {
+	once.Do(func() {
+		serverMapInstance = NewServerMap()
+		err := serverMapInstance.LoadFromFile(configFile)
+		if err != nil {
+			// Handle error, e.g., log it, panic, etc.
+			panic(err)
+		}
+	})
 }
