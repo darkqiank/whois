@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +33,7 @@ import (
 
 var (
 	serverMapInstance *serverMap
-	once              sync.Once
+	onceWhois         sync.Once
 )
 
 const (
@@ -46,8 +45,6 @@ const (
 	defaultElapsedTimeout = 15 * time.Second
 	// defaultTimeout is query default timeout
 	defaultTimeout = 5 * time.Second
-	// asnPrefix is asn prefix string
-	asnPrefix = "AS"
 )
 
 // DefaultClient is default whois client
@@ -241,22 +238,6 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	return string(buffer), nil
 }
 
-// getExtension returns extension of domain
-func getExtension(domain string) string {
-	ext := domain
-
-	if net.ParseIP(domain) == nil {
-		domains := strings.Split(domain, ".")
-		ext = domains[len(domains)-1]
-	}
-
-	if strings.Contains(ext, "/") {
-		ext = strings.Split(ext, "/")[0]
-	}
-
-	return ext
-}
-
 // getServer returns server from whois data
 func getServer(data string) (string, string) {
 	tokens := []string{
@@ -291,41 +272,6 @@ func getServer(data string) (string, string) {
 	return "", ""
 }
 
-// extractHostname 从可能的URL中提取主机名
-func extractHostname(url string) string {
-	// 转小写
-	url = strings.ToLower(url)
-	// 移除协议头
-	url = strings.TrimPrefix(url, "http://")
-	url = strings.TrimPrefix(url, "https://")
-	url = strings.TrimPrefix(url, "whois://")
-	url = strings.TrimPrefix(url, "rwhois://")
-
-	// 截取到第一个斜杠（如果有）之前的部分
-	if slashIndex := strings.Index(url, "/"); slashIndex != -1 {
-		url = url[:slashIndex]
-	}
-
-	// 检查是否以www或www.whois开头，如果是，则替换成whois
-	if strings.HasPrefix(url, "www.whois.") {
-		url = "whois." + url[10:] // 移除www.并保留whois.以及之后的部分
-	} else if strings.HasPrefix(url, "www.") {
-		url = "whois." + url[4:] // 移除www.并加上whois.
-	}
-
-	return url
-}
-
-// IsASN returns if s is ASN
-func IsASN(s string) bool {
-	s = strings.ToUpper(s)
-
-	s = strings.TrimPrefix(s, asnPrefix)
-	_, err := strconv.Atoi(s)
-
-	return err == nil
-}
-
 // dialContext 尝试使用给定的代理Dialer和context来建立连接
 func dialContext(ctx context.Context, dialer proxy.Dialer, network, addr string) (net.Conn, error) {
 	// 注意：这里仅为示例，实际上golang.org/x/net/proxy包的Dialer可能不直接支持context。
@@ -352,8 +298,8 @@ func dialContext(ctx context.Context, dialer proxy.Dialer, network, addr string)
 }
 
 // sync.Once的作用是确保在多线程环境下一个操作只被执行一次
-func Init(configFile string) {
-	once.Do(func() {
+func InitWhois(configFile string) {
+	onceWhois.Do(func() {
 		serverMapInstance = NewServerMap()
 		err := serverMapInstance.LoadFromFile(configFile)
 		if err != nil {

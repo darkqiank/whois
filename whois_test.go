@@ -20,6 +20,7 @@
 package whois
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -29,6 +30,8 @@ import (
 
 	"github.com/likexian/gokit/assert"
 	"golang.org/x/net/proxy"
+
+	parsers "github.com/darkqiank/whois/parsers"
 )
 
 func TestVersion(t *testing.T) {
@@ -38,7 +41,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestClient_SetDisableReferral(t *testing.T) {
-	Init("config/test.json")
+	InitWhois("config/test.json")
 	client := NewClient()
 	resp, err := client.Whois("likexian.com")
 	assert.Nil(t, err)
@@ -103,11 +106,45 @@ func TestWhois2(t *testing.T) {
 }
 
 func TestWhois3(t *testing.T) {
-	Init("")
+	InitWhois("")
 	c := NewClient()
 	c.SetTimeout(10 * time.Second)
 	b, err := c.Whois("01ss.top")
 	fmt.Println(b)
+	fmt.Println(err)
+	assert.Nil(t, err)
+}
+
+func TestRDAP(t *testing.T) {
+	InitRDAP("")
+	c := NewRDAPClient()
+	c2 := NewRDAPClient()
+	// b, err := c.RDAP("01ss.top")
+	c.SetDisableReferral(false)
+	b, err := c.RDAP("baidu.com")
+	fmt.Println(b)
+	fmt.Println(err)
+	assert.Nil(t, err)
+
+	res, err := parsers.ParseRDAPResponse(b)
+	assert.Nil(t, err)
+	j_res, err := json.Marshal(res)
+	fmt.Println(string(j_res))
+	fmt.Println(err)
+	assert.Nil(t, err)
+
+	b, err = c2.RDAP("61.174.133.233")
+	// fmt.Println(b)
+	fmt.Println(err)
+	assert.Nil(t, err)
+
+	b, err = c.RDAP("kkk")
+	// fmt.Println(b)
+	fmt.Println(err)
+	assert.NotNil(t, err)
+
+	b, err = c.RDAP("ASN4608")
+	// fmt.Println(b)
 	fmt.Println(err)
 	assert.Nil(t, err)
 }
