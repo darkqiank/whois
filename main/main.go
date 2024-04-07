@@ -20,6 +20,9 @@ func main() {
 	// rdap服务config路径
 	rdapPath := flag.String("r", "", "Path to the rdap file. set online to init from iana")
 
+	// 新增端口号命令行参数
+	server_port := flag.String("p", "8080", "Port on which the server will run.")
+
 	// 解析命令行参数
 	flag.Parse()
 
@@ -37,7 +40,7 @@ func main() {
 	// Choose the port to start server on
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = *server_port
 	}
 
 	serverAddress := fmt.Sprintf(":%s", port)
