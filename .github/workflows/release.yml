@@ -28,7 +28,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          BUILD_IN_DIR: main/main.go
+          BUILD_IN_DIR: main/
           BUILD_BIN_DIR: 
           BUILD_BIN_FILE: whois
           BUILD_FLAGS: -v
