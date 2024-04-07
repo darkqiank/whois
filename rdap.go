@@ -136,14 +136,20 @@ func GetRelURL(res map[string]interface{}) (string, bool) {
 // InitRDAP sync.Once的作用是确保在多线程环境下一个操作只被执行一次
 func InitRDAP(configFile string) {
 	onceRDAP.Do(func() {
+		var err error
 		rdapMapInstance = NewRdapMap()
-		err := rdapMapInstance.LoadFromIANA()
-		if err != nil {
-			err = rdapMapInstance.LoadFromFile(configFile)
+		if configFile == "online" {
+			err = rdapMapInstance.LoadFromIANA()
 			if err != nil {
-				// Handle error, e.g., log it, panic, etc.
-				panic(err)
+				err = rdapMapInstance.LoadFromFile(configFile)
 			}
+		} else {
+			err = rdapMapInstance.LoadFromFile(configFile)
+		}
+		if err != nil {
+			// 统一的错误处理
+			// 可以选择记录日志、发送报警、panic等
+			panic(err)
 		}
 	})
 }

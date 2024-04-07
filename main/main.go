@@ -18,7 +18,7 @@ func main() {
 	serversPath := flag.String("s", "", "Path to the servers file.")
 
 	// rdap服务config路径
-	rdapPath := flag.String("r", "", "Path to the rdap file.")
+	rdapPath := flag.String("r", "", "Path to the rdap file. set online to init from iana")
 
 	// 解析命令行参数
 	flag.Parse()
