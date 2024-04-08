@@ -121,7 +121,7 @@ func TestRDAP(t *testing.T) {
 	c2 := NewRDAPClient()
 	// b, err := c.RDAP("01ss.top")
 	c.SetDisableReferral(false)
-	b, err := c.RDAP("baidu.com")
+	b, err := c.RDAP("catflix.cn")
 	//fmt.Println(b)
 	fmt.Println(err)
 	assert.Nil(t, err)

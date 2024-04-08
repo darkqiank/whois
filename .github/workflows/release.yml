@@ -15,10 +15,10 @@ jobs:
     strategy:
       matrix:
         goos: [linux, darwin, windows]
-        goarch: ["386", "amd64"]
-        exclude:
-          - goos: darwin
-            goarch: "386"
+        goarch: ["amd64"]
+#        exclude:
+#          - goos: darwin
+#            goarch: "386"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -35,4 +35,4 @@ jobs:
           BUILD_LDFLAGS: -w -s
           PACK_ASSET_FILE: whois-${{ matrix.goos }}-${{ matrix.goarch }}
           PACK_INCLUDE_DIR: whois
-          PACK_EXTRA_FILES: LICENSE README.md
+          PACK_EXTRA_FILES: LICENSE README.md start.sh
