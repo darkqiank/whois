@@ -33,6 +33,7 @@ jobs:
           BUILD_BIN_FILE: whois
           BUILD_FLAGS: -v
           BUILD_LDFLAGS: -w -s
+          CGO_ENABLED: 0  # 禁用 CGO，避免依赖系统库
           PACK_ASSET_FILE: whois-${{ matrix.goos }}-${{ matrix.goarch }}
           PACK_INCLUDE_DIR: whois
           PACK_EXTRA_FILES: LICENSE README.md start.sh
