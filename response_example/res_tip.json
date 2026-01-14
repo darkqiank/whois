@@ -1,0 +1,25 @@
+{
+    "contactEmail": "abusecomplaints@markmonitor.com",
+    "contactPhone": "+1.2083895740",
+    "dnsNameServer": [
+      "NS1.BAIDU.COM",
+      "NS2.BAIDU.COM",
+      "NS4.BAIDU.COM",
+      "NS7.BAIDU.COM"
+    ],
+    "domainName": "BAIDU.COM",
+    "domainStatus": [
+      "clientDeleteProhibited https://icann.org/epp#clientDeleteProhibited",
+      "clientTransferProhibited https://icann.org/epp#clientTransferProhibited",
+      "clientUpdateProhibited https://icann.org/epp#clientUpdateProhibited",
+      "serverDeleteProhibited https://icann.org/epp#serverDeleteProhibited",
+      "serverTransferProhibited https://icann.org/epp#serverTransferProhibited",
+      "serverUpdateProhibited https://icann.org/epp#serverUpdateProhibited"
+    ],
+    "expirationTime": "2028-10-11T11:05:17Z",
+    "registrant": "",
+    "registrar": "MarkMonitor Information Technology (Shanghai) Co., Ltd.",
+    "registrarWHOISServer": "whois.markmonitor.com",
+    "registrationTime": "1999-10-11T11:05:17Z",
+    "updatedDate": "2025-04-08T00:48:16Z"
+  }

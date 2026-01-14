@@ -2,6 +2,9 @@ package server
 
 import (
 	"fmt"
+	"strings"
+
+	parser "github.com/darkqiank/whois/parsers"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -29,19 +32,97 @@ func WhoisHandler(c *fiber.Ctx) error {
 		disableReferral = false
 	}
 
+	// 检查是否有tip查询参数传入
+	tip := c.Query("tip")
+
 	// 获取Whois数据
 	whois, err := GetWhois(domain, disableReferral)
 	if err != nil {
+		if tip == "1" {
+			return c.Status(fiber.StatusInternalServerError).JSON(nil)
+		}
 		return sendJSONResponse(c, fiber.StatusInternalServerError, whois, err)
 	}
 
 	// 检查是否获得了空数据
 	if whois.Domain == nil { // 假设WhoisInfo有一个Domain字段
+		if tip == "1" {
+			return c.Status(fiber.StatusInternalServerError).JSON(nil)
+		}
 		return sendJSONResponse(c, fiber.StatusNotFound, nil, fmt.Errorf("WHOIS DATA EMPTY"))
+	}
+
+	// 如果tip=1，返回TipResponse格式
+	if tip == "1" {
+		tipResponse, err := convertToTipResponse(whois)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(nil)
+		}
+		return c.Status(fiber.StatusOK).JSON(tipResponse)
 	}
 
 	// 成功响应
 	return sendJSONResponse(c, fiber.StatusOK, whois, nil)
+}
+
+// convertToTipResponse 将WhoisInfo转换为TipResponse格式
+func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
+	if whois.Domain == nil {
+		return nil, fmt.Errorf("domain info is nil")
+	}
+
+	tipResponse := &TipResponse{
+		DomainName:   strings.ToUpper(whois.Domain.Domain),
+		DomainStatus: whois.Domain.Status,
+		DNSNameServer: func() []string {
+			if whois.Domain.NameServers == nil {
+				return []string{}
+			}
+			// 将 name servers 转换为大写
+			servers := make([]string, len(whois.Domain.NameServers))
+			for i, ns := range whois.Domain.NameServers {
+				servers[i] = strings.ToUpper(ns)
+			}
+			return servers
+		}(),
+		RegistrarWHOISServer: whois.Domain.WhoisServer,
+	}
+
+	// 处理日期
+	if whois.Domain.CreatedDateInTime != nil {
+		tipResponse.RegistrationTime = whois.Domain.CreatedDateInTime.Format("2006-01-02T15:04:05Z")
+	} else if whois.Domain.CreatedDate != "" {
+		tipResponse.RegistrationTime = whois.Domain.CreatedDate
+	}
+
+	if whois.Domain.UpdatedDateInTime != nil {
+		tipResponse.UpdatedDate = whois.Domain.UpdatedDateInTime.Format("2006-01-02T15:04:05Z")
+	} else if whois.Domain.UpdatedDate != "" {
+		tipResponse.UpdatedDate = whois.Domain.UpdatedDate
+	}
+
+	if whois.Domain.ExpirationDateInTime != nil {
+		tipResponse.ExpirationTime = whois.Domain.ExpirationDateInTime.Format("2006-01-02T15:04:05Z")
+	} else if whois.Domain.ExpirationDate != "" {
+		tipResponse.ExpirationTime = whois.Domain.ExpirationDate
+	}
+
+	// 处理 Registrar 信息
+	if whois.Registrar != nil {
+		tipResponse.Registrar = whois.Registrar.Name
+		tipResponse.ContactEmail = whois.Registrar.Email
+		tipResponse.ContactPhone = whois.Registrar.Phone
+	}
+
+	// 处理 Registrant 信息
+	if whois.Registrant != nil {
+		tipResponse.Registrant = whois.Registrant.Organization
+		if tipResponse.Registrant == "" {
+			tipResponse.Registrant = whois.Registrant.Name
+		}
+	}
+
+	return tipResponse, nil
 }
 
 func RdapHandler(c *fiber.Ctx) error {
