@@ -901,12 +901,21 @@ func prepareNL(text string) string {
 		}
 		if _, ok := tokens[v]; ok {
 			token = v
+			index = 0
 		} else {
 			if token == "" {
 				result += "\n" + v
 			} else {
-				result += fmt.Sprintf("\n%s %s: %s", token[:len(token)-1], tokens[token][index], v)
-				index++
+				// Check if index is within bounds
+				if index < len(tokens[token]) {
+					result += fmt.Sprintf("\n%s %s: %s", token[:len(token)-1], tokens[token][index], v)
+					index++
+				} else {
+					// If index exceeds array bounds, reset token to prevent further processing
+					token = ""
+					index = 0
+					result += "\n" + v
+				}
 			}
 		}
 	}
