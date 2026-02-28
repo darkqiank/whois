@@ -107,19 +107,38 @@ func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
 		tipResponse.ExpirationTime = whois.Domain.ExpirationDate
 	}
 
-	// 处理 Registrar 信息
-	if whois.Registrar != nil {
-		tipResponse.Registrar = whois.Registrar.Name
-		tipResponse.ContactEmail = whois.Registrar.Email
-		tipResponse.ContactPhone = whois.Registrar.Phone
+	getContactDisplayName := func(contact *parser.Contact) string {
+		if contact == nil {
+			return ""
+		}
+		if contact.Organization != "" {
+			return contact.Organization
+		}
+		return contact.Name
 	}
 
-	// 处理 Registrant 信息
+	// 按字段优先级映射：Registrar 优先 registrar，其他联系信息优先 registrant。
+	if whois.Registrar != nil {
+		tipResponse.Registrar = getContactDisplayName(whois.Registrar)
+	}
 	if whois.Registrant != nil {
-		tipResponse.Registrant = whois.Registrant.Organization
-		if tipResponse.Registrant == "" {
-			tipResponse.Registrant = whois.Registrant.Name
-		}
+		tipResponse.Registrant = getContactDisplayName(whois.Registrant)
+		tipResponse.ContactEmail = whois.Registrant.Email
+		tipResponse.ContactPhone = whois.Registrant.Phone
+	}
+
+	// 双向兜底：某字段缺失时再从另一方补齐。
+	if tipResponse.Registrar == "" {
+		tipResponse.Registrar = getContactDisplayName(whois.Registrant)
+	}
+	if tipResponse.Registrant == "" {
+		tipResponse.Registrant = getContactDisplayName(whois.Registrar)
+	}
+	if tipResponse.ContactEmail == "" && whois.Registrar != nil {
+		tipResponse.ContactEmail = whois.Registrar.Email
+	}
+	if tipResponse.ContactPhone == "" && whois.Registrar != nil {
+		tipResponse.ContactPhone = whois.Registrar.Phone
 	}
 
 	return tipResponse, nil
