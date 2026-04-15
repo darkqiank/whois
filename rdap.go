@@ -58,16 +58,16 @@ func (c *RDAPClient) RDAP(q string) (map[string]interface{}, error) {
 	if q == "" {
 		return nil, ErrDomainEmpty
 	}
-	rtype, url, exists := rdapMapInstance.GetRdapServer(q)
+	_, url, exists := rdapMapInstance.GetRdapServer(q)
 	fmt.Println(url)
 	if exists {
 		res, err := c.rdapRawQuery(url)
 		if res != nil && err == nil {
-			if !c.disableReferral && rtype == "domain" {
-				// 配置了不跳过refer
-				url, exists = GetRelURL(res)
-				if exists {
-					res, err = c.rdapRawQuery(url)
+			if !c.disableReferral {
+				// 配置了不跳过 refer，域名/IP/ASN 都允许继续跟随 related 链接
+				refURL, exists := GetRelURL(res)
+				if exists && refURL != "" && refURL != url {
+					res, err = c.rdapRawQuery(refURL)
 				}
 			}
 			return res, err
@@ -119,14 +119,24 @@ func (c *RDAPClient) rdapRawQuery(url string) (map[string]interface{}, error) {
 
 func GetRelURL(res map[string]interface{}) (string, bool) {
 	if links, ok := res["links"]; ok {
-		for _, link := range links.([]interface{}) {
-			linkData := link.(map[string]interface{})
-			rel, ok1 := linkData["rel"].(string)
-			value, ok2 := linkData["value"].(string)
-			if ok1 && ok2 {
-				if rel == "related" {
-					return value, true
-				}
+		linkList, ok := links.([]interface{})
+		if !ok {
+			return "", false
+		}
+		for _, link := range linkList {
+			linkData, ok := link.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			rel, ok := linkData["rel"].(string)
+			if !ok || rel != "related" {
+				continue
+			}
+			if href, ok := linkData["href"].(string); ok && href != "" {
+				return href, true
+			}
+			if value, ok := linkData["value"].(string); ok && value != "" {
+				return value, true
 			}
 		}
 	}

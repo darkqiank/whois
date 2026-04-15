@@ -53,6 +53,7 @@ type Contact struct {
 type RDAPInfo struct {
 	Type string `json:"type,omitempty"`
 	Data any    `json:"info,omitempty"`
+	Raw  any    `json:"raw,omitempty"`
 }
 
 // DomainInfo represents the information about a domain.

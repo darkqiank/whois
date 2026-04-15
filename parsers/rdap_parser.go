@@ -6,9 +6,9 @@ import (
 
 func ParseRDAPResponse(result map[string]interface{}) (RDAPInfo, error) {
 
-	rdap := RDAPInfo{}
-	if objectClassName, ok := result["objectClassName"]; ok {
-		rdap.Type = objectClassName.(string)
+	rdap := RDAPInfo{Raw: result}
+	if objectClassName, ok := result["objectClassName"].(string); ok {
+		rdap.Type = objectClassName
 		if rdap.Type == "domain" {
 			data, err := ParseRDAPResponseForDomain(result)
 			if err == nil {

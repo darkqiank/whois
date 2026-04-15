@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	parser "github.com/darkqiank/whois/parsers"
@@ -159,6 +160,13 @@ func RdapHandler(c *fiber.Ctx) error {
 	// 初始化disableReferral为true
 	disableReferral := true
 
+	// 检查是否有tip查询参数传入
+	tip := c.Query("tip")
+
+	if tip == "1" && net.ParseIP(domain) == nil {
+		return sendJSONResponse(c, fiber.StatusBadRequest, nil, fmt.Errorf("tip=1 only supports ip rdap queries"))
+	}
+
 	// 检查是否有ref查询参数传入
 	ref := c.Query("ref")
 	if ref != "" {
@@ -173,6 +181,17 @@ func RdapHandler(c *fiber.Ctx) error {
 	// 检查是否获得了空数据
 	if rdap.Data == nil {
 		return sendJSONResponse(c, fiber.StatusNotFound, nil, fmt.Errorf("RDAP DATA EMPTY"))
+	}
+
+	if tip == "1" {
+		if !strings.EqualFold(rdap.Type, "ip network") {
+			return sendJSONResponse(c, fiber.StatusBadRequest, nil, fmt.Errorf("tip=1 only supports ip rdap queries"))
+		}
+		tipResponse, err := convertRDAPToIPTipResponse(rdap)
+		if err != nil {
+			return sendJSONResponse(c, fiber.StatusInternalServerError, nil, err)
+		}
+		return c.Status(fiber.StatusOK).JSON(tipResponse)
 	}
 
 	// 成功响应
