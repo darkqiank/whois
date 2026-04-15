@@ -1,39 +1,42 @@
-# release.yaml
-# Maintainer: https://www.likexian.com
-# Licensed under the Apache License 2.0
-
 name: Release
 
 on:
   push:
     tags:
-    - 'v**'
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: ["amd64"]
-#        exclude:
-#          - goos: darwin
-#            goarch: "386"
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Release code
-        uses: likexian/go-release-action@v0.6.0
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build linux amd64 binary
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          BUILD_IN_DIR: main/
-          BUILD_BIN_DIR: 
-          BUILD_BIN_FILE: whois
-          BUILD_FLAGS: -v
-          BUILD_LDFLAGS: -w -s
-          CGO_ENABLED: 0  # 禁用 CGO，避免依赖系统库
-          PACK_ASSET_FILE: whois-${{ matrix.goos }}-${{ matrix.goarch }}
-          PACK_INCLUDE_DIR: whois
-          PACK_EXTRA_FILES: LICENSE README.md start.sh
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          mkdir -p dist/whois
+          go build -trimpath -ldflags="-w -s" -o dist/whois/whois ./main
+          cp LICENSE README.md start.sh dist/whois/
+          chmod +x dist/whois/whois dist/whois/start.sh
+
+      - name: Package release asset
+        run: |
+          tar -C dist -czf whois-linux-amd64.tar.gz whois
+
+      - name: Create GitHub release and upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: whois-linux-amd64.tar.gz
