@@ -75,6 +75,30 @@ func TestClient_WhoisReferralFailureFallback(t *testing.T) {
 	assert.Contains(t, resp, "Domain Name: EXAMPLE.COM")
 }
 
+func TestClient_WhoisReferralReadTimeoutFallback(t *testing.T) {
+	client := NewClient()
+	client.serverMap = NewServerMap()
+	client.SetTimeout(50 * time.Millisecond)
+	client.SetDisableStats(true)
+	client.SetDisableReferral(false)
+	client.SetDialer(fakeWhoisDialer{
+		responses: map[string]string{
+			"primary.test:43": "Domain Name: EXAMPLE.COM\nRegistrar WHOIS Server: ref.test\n",
+			"ref.test:43":     "Domain Name: EXAMPLE.COM\nRegistrant Name: Referral Result\n",
+		},
+		delays: map[string]time.Duration{
+			"ref.test:43": 200 * time.Millisecond,
+		},
+	})
+
+	resp, err := client.Whois("example.com", "primary.test")
+	assert.Nil(t, err)
+	assert.Contains(t, resp, "Domain Name: EXAMPLE.COM")
+	if strings.Contains(resp, "Referral Result") {
+		t.Fatalf("expected referral timeout fallback, got referral response: %s", resp)
+	}
+}
+
 func TestNewClient_TimeoutFromEnv(t *testing.T) {
 	t.Setenv(whoisTimeoutEnv, "2")
 	client := NewClient()
@@ -95,6 +119,7 @@ func TestNewClient_TimeoutFromEnvFallback(t *testing.T) {
 type fakeWhoisDialer struct {
 	responses map[string]string
 	errors    map[string]error
+	delays    map[string]time.Duration
 }
 
 func (d fakeWhoisDialer) Dial(_, addr string) (net.Conn, error) {
@@ -111,6 +136,9 @@ func (d fakeWhoisDialer) Dial(_, addr string) (net.Conn, error) {
 	go func() {
 		defer serverConn.Close()
 		_, _ = bufio.NewReader(serverConn).ReadString('\n')
+		if delay := d.delays[addr]; delay > 0 {
+			time.Sleep(delay)
+		}
 		_, _ = serverConn.Write([]byte(response))
 	}()
 	return clientConn, nil

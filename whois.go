@@ -227,7 +227,8 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 		server = value
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	deadline := time.Now().Add(c.timeout)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
 	// conn, err := c.dialer.DialContext(ctx, "tcp", net.JoinHostPort(server, port))
@@ -239,7 +240,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	defer conn.Close()
 	// c.elapsed = time.Since(start)
 
-	// _ = conn.SetWriteDeadline(time.Now().Add(c.timeout - c.elapsed))
+	_ = conn.SetWriteDeadline(deadline)
 	_, err = conn.Write([]byte(domain + "\r\n"))
 	if err != nil {
 		return "", fmt.Errorf("whois: send to whois server (%s) failed: %w", server, err)
@@ -247,7 +248,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 
 	// c.elapsed = time.Since(start)
 
-	// _ = conn.SetReadDeadline(time.Now().Add(c.timeout - c.elapsed))
+	_ = conn.SetReadDeadline(deadline)
 	buffer, err := io.ReadAll(conn)
 	if err != nil {
 		return "", fmt.Errorf("whois: read from whois server (%s) failed: %w", server, err)
@@ -294,24 +295,24 @@ func getServer(data string) (string, string) {
 
 // dialContext 尝试使用给定的代理Dialer和context来建立连接
 func dialContext(ctx context.Context, dialer proxy.Dialer, network, addr string) (net.Conn, error) {
-	// 注意：这里仅为示例，实际上golang.org/x/net/proxy包的Dialer可能不直接支持context。
-	// 如果你的代理Dialer支持DialContext，直接使用它。
-	// 否则，你需要根据具体的Dialer实现调整此函数。
-	ch := make(chan net.Conn, 1)
-	var dialErr error
+	if contextDialer, ok := dialer.(proxy.ContextDialer); ok {
+		return contextDialer.DialContext(ctx, network, addr)
+	}
+
+	type dialResult struct {
+		conn net.Conn
+		err  error
+	}
+
+	ch := make(chan dialResult, 1)
 	go func() {
 		conn, err := dialer.Dial(network, addr)
-		if err != nil {
-			dialErr = err
-			ch <- nil
-			return
-		}
-		ch <- conn
+		ch <- dialResult{conn: conn, err: err}
 	}()
 
 	select {
-	case conn := <-ch:
-		return conn, dialErr
+	case result := <-ch:
+		return result.conn, result.err
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
