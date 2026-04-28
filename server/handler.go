@@ -128,7 +128,7 @@ func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
 		return contact.Organization
 	}
 
-	// 按字段优先级映射：Registrar 优先 registrar，其他联系信息优先 registrant。
+	// Registrar and registrant must not fall back to each other.
 	if whois.Registrar != nil {
 		tipResponse.Registrar = getContactDisplayName(whois.Registrar)
 	}
@@ -137,14 +137,6 @@ func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
 		tipResponse.RegistrantOrganization = whois.Registrant.Organization
 		tipResponse.ContactEmail = whois.Registrant.Email
 		tipResponse.ContactPhone = whois.Registrant.Phone
-	}
-
-	// 双向兜底：某字段缺失时再从另一方补齐。
-	if tipResponse.Registrar == "" {
-		tipResponse.Registrar = getContactDisplayName(whois.Registrant)
-	}
-	if tipResponse.Registrant == "" {
-		tipResponse.Registrant = getRegistrantDisplayName(whois.Registrar)
 	}
 	if tipResponse.ContactEmail == "" && whois.Registrar != nil {
 		tipResponse.ContactEmail = whois.Registrar.Email
