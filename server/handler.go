@@ -118,12 +118,22 @@ func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
 		return contact.Name
 	}
 
+	getRegistrantDisplayName := func(contact *parser.Contact) string {
+		if contact == nil {
+			return ""
+		}
+		if contact.Name != "" {
+			return contact.Name
+		}
+		return contact.Organization
+	}
+
 	// 按字段优先级映射：Registrar 优先 registrar，其他联系信息优先 registrant。
 	if whois.Registrar != nil {
 		tipResponse.Registrar = getContactDisplayName(whois.Registrar)
 	}
 	if whois.Registrant != nil {
-		tipResponse.Registrant = getContactDisplayName(whois.Registrant)
+		tipResponse.Registrant = getRegistrantDisplayName(whois.Registrant)
 		tipResponse.RegistrantOrganization = whois.Registrant.Organization
 		tipResponse.ContactEmail = whois.Registrant.Email
 		tipResponse.ContactPhone = whois.Registrant.Phone
@@ -134,7 +144,7 @@ func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
 		tipResponse.Registrar = getContactDisplayName(whois.Registrant)
 	}
 	if tipResponse.Registrant == "" {
-		tipResponse.Registrant = getContactDisplayName(whois.Registrar)
+		tipResponse.Registrant = getRegistrantDisplayName(whois.Registrar)
 	}
 	if tipResponse.ContactEmail == "" && whois.Registrar != nil {
 		tipResponse.ContactEmail = whois.Registrar.Email

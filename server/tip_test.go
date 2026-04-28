@@ -23,4 +23,7 @@ func TestConvertToTipResponseRegistrantOrganization(t *testing.T) {
 	if result.RegistrantOrganization != "Example Org" {
 		t.Fatalf("unexpected registrant organization: %s", result.RegistrantOrganization)
 	}
+	if result.Registrant != "Example Registrant" {
+		t.Fatalf("unexpected registrant: %s", result.Registrant)
+	}
 }
