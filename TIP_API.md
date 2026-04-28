@@ -52,6 +52,7 @@ GET /google.com?tip=1
   ],
   "expirationTime": "2028-09-14T04:00:00Z",
   "registrant": "Google LLC",
+  "registrant_organization": "Google LLC",
   "registrar": "MarkMonitor Inc.",
   "registrarWHOISServer": "whois.markmonitor.com",
   "registrationTime": "1997-09-15T04:00:00Z",
@@ -68,6 +69,7 @@ GET /google.com?tip=1
 | `dnsNameServer` | string[] | DNS 服务器列表，统一转为大写 |
 | `registrar` | string | 注册商名称 |
 | `registrant` | string | 注册人或注册组织名称 |
+| `registrant_organization` | string | 注册人组织名称 |
 | `contactEmail` | string | 联系邮箱 |
 | `contactPhone` | string | 联系电话 |
 | `registrarWHOISServer` | string | 注册商 WHOIS 服务器 |

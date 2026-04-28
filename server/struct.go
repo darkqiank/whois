@@ -14,15 +14,16 @@ type Response struct {
 
 // TipResponse 用于 tip=1 参数时返回的扁平化格式
 type TipResponse struct {
-	ContactEmail         string   `json:"contactEmail"`
-	ContactPhone         string   `json:"contactPhone"`
-	DNSNameServer        []string `json:"dnsNameServer"`
-	DomainName           string   `json:"domainName"`
-	DomainStatus         []string `json:"domainStatus"`
-	ExpirationTime       string   `json:"expirationTime"`
-	Registrant           string   `json:"registrant"`
-	Registrar            string   `json:"registrar"`
-	RegistrarWHOISServer string   `json:"registrarWHOISServer"`
-	RegistrationTime     string   `json:"registrationTime"`
-	UpdatedDate          string   `json:"updatedDate"`
+	ContactEmail           string   `json:"contactEmail"`
+	ContactPhone           string   `json:"contactPhone"`
+	DNSNameServer          []string `json:"dnsNameServer"`
+	DomainName             string   `json:"domainName"`
+	DomainStatus           []string `json:"domainStatus"`
+	ExpirationTime         string   `json:"expirationTime"`
+	Registrant             string   `json:"registrant"`
+	RegistrantOrganization string   `json:"registrant_organization"`
+	Registrar              string   `json:"registrar"`
+	RegistrarWHOISServer   string   `json:"registrarWHOISServer"`
+	RegistrationTime       string   `json:"registrationTime"`
+	UpdatedDate            string   `json:"updatedDate"`
 }

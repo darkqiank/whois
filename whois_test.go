@@ -20,9 +20,11 @@
 package whois
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"testing"
@@ -52,6 +54,49 @@ func TestClient_SetDisableReferral(t *testing.T) {
 	resp, err = client.Whois("likexian.com")
 	assert.Nil(t, err)
 	assert.Equal(t, strings.Count(resp, "Domain Name: LIKEXIAN.COM"), 1)
+}
+
+func TestClient_WhoisReferralFailureFallback(t *testing.T) {
+	client := NewClient()
+	client.serverMap = NewServerMap()
+	client.SetDisableStats(true)
+	client.SetDisableReferral(false)
+	client.SetDialer(fakeWhoisDialer{
+		responses: map[string]string{
+			"primary.test:43": "Domain Name: EXAMPLE.COM\nRegistrar WHOIS Server: ref.test\n",
+		},
+		errors: map[string]error{
+			"ref.test:43": errors.New("referral timeout"),
+		},
+	})
+
+	resp, err := client.Whois("example.com", "primary.test")
+	assert.Nil(t, err)
+	assert.Contains(t, resp, "Domain Name: EXAMPLE.COM")
+}
+
+type fakeWhoisDialer struct {
+	responses map[string]string
+	errors    map[string]error
+}
+
+func (d fakeWhoisDialer) Dial(_, addr string) (net.Conn, error) {
+	if err, ok := d.errors[addr]; ok {
+		return nil, err
+	}
+
+	response, ok := d.responses[addr]
+	if !ok {
+		return nil, fmt.Errorf("unexpected dial addr: %s", addr)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	go func() {
+		defer serverConn.Close()
+		_, _ = bufio.NewReader(serverConn).ReadString('\n')
+		_, _ = serverConn.Write([]byte(response))
+	}()
+	return clientConn, nil
 }
 
 func TestWhoisFail(t *testing.T) {

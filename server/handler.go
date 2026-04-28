@@ -124,6 +124,7 @@ func convertToTipResponse(whois parser.WhoisInfo) (*TipResponse, error) {
 	}
 	if whois.Registrant != nil {
 		tipResponse.Registrant = getContactDisplayName(whois.Registrant)
+		tipResponse.RegistrantOrganization = whois.Registrant.Organization
 		tipResponse.ContactEmail = whois.Registrant.Email
 		tipResponse.ContactPhone = whois.Registrant.Phone
 	}

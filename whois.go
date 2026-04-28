@@ -185,6 +185,8 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 	data, err := c.rawQuery(domain, refServer, refPort)
 	if err == nil {
 		result += data
+	} else {
+		err = nil
 	}
 
 	return
