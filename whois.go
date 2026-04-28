@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -41,10 +43,12 @@ const (
 	defaultWhoisServer = "whois.iana.org"
 	// defaultWhoisPort is default whois port
 	defaultWhoisPort = "43"
-	// defaultElapsedTimeout
-	defaultElapsedTimeout = 15 * time.Second
+	// defaultElapsedTimeout is the timeout for each WHOIS query attempt.
+	defaultElapsedTimeout = 5 * time.Second
 	// defaultTimeout is query default timeout
 	defaultTimeout = 5 * time.Second
+	// whoisTimeoutEnv is the per-query WHOIS timeout in seconds.
+	whoisTimeoutEnv = "WHOIS_TIMEOUT_SECONDS"
 )
 
 // DefaultClient is default whois client
@@ -87,9 +91,23 @@ func NewClient() *Client {
 		dialer: &net.Dialer{
 			Timeout: defaultTimeout,
 		},
-		timeout:   defaultElapsedTimeout,
+		timeout:   getWhoisTimeoutFromEnv(),
 		serverMap: serverMapInstance,
 	}
+}
+
+func getWhoisTimeoutFromEnv() time.Duration {
+	value := strings.TrimSpace(os.Getenv(whoisTimeoutEnv))
+	if value == "" {
+		return defaultElapsedTimeout
+	}
+
+	seconds, err := strconv.Atoi(value)
+	if err != nil || seconds <= 0 {
+		return defaultElapsedTimeout
+	}
+
+	return time.Duration(seconds) * time.Second
 }
 
 // SetDialer set query net dialer

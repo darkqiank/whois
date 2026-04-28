@@ -12,6 +12,7 @@
 - 域名 tip 仅适用于域名 WHOIS 查询。
 - IP tip 仅适用于 IP RDAP 查询。
 - 如果需要完整原始数据，请不要传 `tip=1`，直接使用默认接口返回。
+- WHOIS 单次查询超时可通过 `WHOIS_TIMEOUT_SECONDS` 配置，默认 `5` 秒；一级查询和 referral 查询分别使用该超时。
 
 ## 1. 域名 WHOIS Tip 接口
 

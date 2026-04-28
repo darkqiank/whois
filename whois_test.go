@@ -75,6 +75,23 @@ func TestClient_WhoisReferralFailureFallback(t *testing.T) {
 	assert.Contains(t, resp, "Domain Name: EXAMPLE.COM")
 }
 
+func TestNewClient_TimeoutFromEnv(t *testing.T) {
+	t.Setenv(whoisTimeoutEnv, "2")
+	client := NewClient()
+	assert.Equal(t, client.timeout, 2*time.Second)
+}
+
+func TestNewClient_TimeoutFromEnvFallback(t *testing.T) {
+	tests := []string{"", "0", "-1", "invalid"}
+	for _, value := range tests {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv(whoisTimeoutEnv, value)
+			client := NewClient()
+			assert.Equal(t, client.timeout, defaultElapsedTimeout)
+		})
+	}
+}
+
 type fakeWhoisDialer struct {
 	responses map[string]string
 	errors    map[string]error

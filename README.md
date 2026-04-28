@@ -14,6 +14,11 @@ through command-line arguments and environment variables to suit various deploym
 * External configuration for WHOIS and RDAP services.
 * ASCII art logo on startup.
 
+## Environment Variables
+
+* `PORT`: Server port. Defaults to `8080`.
+* `WHOIS_TIMEOUT_SECONDS`: Per-query WHOIS timeout in seconds. Defaults to `5`; both primary and referral WHOIS queries use this timeout.
+
 ## Installation
 
 ```shell
