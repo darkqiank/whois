@@ -19,7 +19,7 @@ func ParseRDAPResponse(result map[string]interface{}) (RDAPInfo, error) {
 			if err == nil {
 				rdap.Data = data
 			}
-		} else {
+		} else if rdap.Type == "ip network" {
 			data, err := ParseRDAPResponseforIP(result)
 			if err == nil {
 				rdap.Data = data
@@ -34,113 +34,122 @@ func ParseRDAPResponse(result map[string]interface{}) (RDAPInfo, error) {
 func ParseRDAPResponseForDomain(result map[string]interface{}) (DomainInfo, error) {
 	domainInfo := DomainInfo{}
 
-	if handle, ok := result["handle"]; ok {
-		domainInfo.ID = handle.(string)
+	if handle, ok := result["handle"].(string); ok {
+		domainInfo.ID = handle
 	}
 
-	if ldhName, ok := result["ldhName"]; ok {
-		domainInfo.Domain = ldhName.(string)
+	if ldhName, ok := result["ldhName"].(string); ok {
+		domainInfo.Domain = ldhName
 	}
 
-	if status, ok := result["status"]; ok {
-		domainInfo.Status = make([]string, len(status.([]interface{})))
-		for i, s := range status.([]interface{}) {
-			domainInfo.Status[i] = s.(string)
-		}
-	}
+	domainInfo.Status = rdapStringSlice(result["status"])
 
-	if entities, ok := result["entities"]; ok {
-		for _, entity := range entities.([]interface{}) {
-			if roles, ok := entity.(map[string]interface{})["roles"]; ok {
-				for _, role := range roles.([]interface{}) {
-					if role.(string) == "registrar" {
-						registrarEntity := entity.(map[string]interface{})
-						if vcardArray, ok := registrarEntity["vcardArray"]; ok {
-							vcardArraySlice, ok := vcardArray.([]interface{})
-							if ok && len(vcardArraySlice) > 1 {
-								innerSlice, ok := vcardArraySlice[1].([]interface{})
-								if ok {
-									for _, item := range innerSlice {
-										itemSlice, ok := item.([]interface{})
-										if ok && len(itemSlice) > 0 {
-											if itemSlice[0] == "fn" && len(itemSlice) > 3 {
-												domainInfo.Registrar = itemSlice[3].(string)
-												break
-											}
-										}
-									}
-								}
-							}
+	if entities, ok := result["entities"].([]interface{}); ok {
+		for _, item := range entities {
+			entity, ok := item.(map[string]interface{})
+			if !ok || !rdapContainsString(entity["roles"], "registrar") {
+				continue
+			}
+			if vcard, ok := entity["vcardArray"].([]interface{}); ok && len(vcard) > 1 {
+				if fields, ok := vcard[1].([]interface{}); ok {
+					for _, field := range fields {
+						parts, ok := field.([]interface{})
+						if !ok || len(parts) < 4 || parts[0] != "fn" {
+							continue
 						}
-						if publicIds, ok := registrarEntity["publicIds"]; ok {
-							domainInfo.RegistrarIANAID = publicIds.([]interface{})[0].(map[string]interface{})["identifier"].(string)
+						if name, ok := parts[3].(string); ok {
+							domainInfo.Registrar = name
+							break
 						}
-						break
 					}
 				}
 			}
+			if ids, ok := entity["publicIds"].([]interface{}); ok {
+				for _, id := range ids {
+					if publicID, ok := id.(map[string]interface{}); ok {
+						if identifier, ok := publicID["identifier"].(string); ok {
+							domainInfo.RegistrarIANAID = identifier
+							break
+						}
+					}
+				}
+			}
+			break
 		}
 	}
 
-	if events, ok := result["events"]; ok {
-		for _, event := range events.([]interface{}) {
-			eventInfo := event.(map[string]interface{})
-			switch eventInfo["eventAction"].(string) {
+	if events, ok := result["events"].([]interface{}); ok {
+		for _, event := range events {
+			eventInfo, ok := event.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			action, ok := eventInfo["eventAction"].(string)
+			if !ok {
+				continue
+			}
+			value, ok := eventInfo["eventDate"].(string)
+			if !ok {
+				continue
+			}
+			switch action {
 			case "registration":
-				value := eventInfo["eventDate"].(string)
 				domainInfo.CreatedDate = value
 				if parsed, err := parseDateString(value); err == nil {
 					domainInfo.CreatedDateInTime = &parsed
 				}
 			case "expiration":
-				value := eventInfo["eventDate"].(string)
 				domainInfo.ExpirationDate = value
 				if parsed, err := parseDateString(value); err == nil {
 					domainInfo.ExpirationDateInTime = &parsed
 				}
 			case "last changed":
-				value := eventInfo["eventDate"].(string)
 				domainInfo.UpdatedDate = value
 				if parsed, err := parseDateString(value); err == nil {
 					domainInfo.UpdatedDateInTime = &parsed
 				}
 			case "last update of RDAP database":
-				value := eventInfo["eventDate"].(string)
 				domainInfo.LastUpdateOfRDAPDB = value
 			}
 		}
 	}
 
-	if nameservers, ok := result["nameservers"]; ok {
-		domainInfo.NameServers = make([]string, len(nameservers.([]interface{})))
-		for i, ns := range nameservers.([]interface{}) {
-			domainInfo.NameServers[i] = ns.(map[string]interface{})["ldhName"].(string)
+	if nameservers, ok := result["nameservers"].([]interface{}); ok {
+		domainInfo.NameServers = make([]string, 0, len(nameservers))
+		for _, ns := range nameservers {
+			if nameserver, ok := ns.(map[string]interface{}); ok {
+				if name, ok := nameserver["ldhName"].(string); ok {
+					domainInfo.NameServers = append(domainInfo.NameServers, name)
+				}
+			}
 		}
 	}
 
 	domainInfo.DNSSec = "unsigned"
-	if secureDNS, ok := result["secureDNS"]; ok {
-		if dsData, ok := secureDNS.(map[string]interface{})["dsData"].([]interface{}); ok && len(dsData) > 0 {
-			dsDataInfo := dsData[0].(map[string]interface{})
-			if dsDataInfo["keytag"] != nil && dsDataInfo["algorithm"] != nil && dsDataInfo["digestType"] != nil && dsDataInfo["digest"] != nil {
-				domainInfo.DNSSec = "signedDelegation"
-				domainInfo.DNSSecDSData = fmt.Sprintf("%d %d %d %s",
-					int(dsDataInfo["keytag"].(float64)),
-					int(dsDataInfo["algorithm"].(float64)),
-					int(dsDataInfo["digestType"].(float64)),
-					dsDataInfo["digest"].(string),
-				)
+	if secureDNS, ok := result["secureDNS"].(map[string]interface{}); ok {
+		if dsData, ok := secureDNS["dsData"].([]interface{}); ok && len(dsData) > 0 {
+			if dsDataInfo, ok := dsData[0].(map[string]interface{}); ok {
+				keytag, keytagOK := dsDataInfo["keytag"].(float64)
+				algorithm, algorithmOK := dsDataInfo["algorithm"].(float64)
+				digestType, digestTypeOK := dsDataInfo["digestType"].(float64)
+				digest, digestOK := dsDataInfo["digest"].(string)
+				if keytagOK && algorithmOK && digestTypeOK && digestOK {
+					domainInfo.DNSSec = "signedDelegation"
+					domainInfo.DNSSecDSData = fmt.Sprintf("%d %d %d %s",
+						int(keytag), int(algorithm), int(digestType), digest)
+				}
 			}
-		} else if keyData, ok := secureDNS.(map[string]interface{})["keyData"].([]interface{}); ok && len(keyData) > 0 {
-			keyDataInfo := keyData[0].(map[string]interface{})
-			if keyDataInfo["algorithm"] != nil && keyDataInfo["flags"] != nil && keyDataInfo["protocol"] != nil && keyDataInfo["publicKey"] != nil {
-				domainInfo.DNSSec = "signedDelegation"
-				domainInfo.DNSSecDSData = fmt.Sprintf("%d %d %d %s",
-					int(keyDataInfo["algorithm"].(float64)),
-					int(keyDataInfo["flags"].(float64)),
-					int(keyDataInfo["protocol"].(float64)),
-					keyDataInfo["publicKey"].(string),
-				)
+		} else if keyData, ok := secureDNS["keyData"].([]interface{}); ok && len(keyData) > 0 {
+			if keyDataInfo, ok := keyData[0].(map[string]interface{}); ok {
+				algorithm, algorithmOK := keyDataInfo["algorithm"].(float64)
+				flags, flagsOK := keyDataInfo["flags"].(float64)
+				protocol, protocolOK := keyDataInfo["protocol"].(float64)
+				publicKey, publicKeyOK := keyDataInfo["publicKey"].(string)
+				if algorithmOK && flagsOK && protocolOK && publicKeyOK {
+					domainInfo.DNSSec = "signedDelegation"
+					domainInfo.DNSSecDSData = fmt.Sprintf("%d %d %d %s",
+						int(algorithm), int(flags), int(protocol), publicKey)
+				}
 			}
 		}
 	}
@@ -152,60 +161,71 @@ func ParseRDAPResponseForDomain(result map[string]interface{}) (DomainInfo, erro
 func ParseRDAPResponseforIP(result map[string]interface{}) (IPInfo, error) {
 	ipinfo := IPInfo{}
 
-	if handle, ok := result["handle"]; ok {
-		ipinfo.IP = handle.(string)
+	if handle, ok := result["handle"].(string); ok {
+		ipinfo.IP = handle
 	}
 
-	if startAddress, ok := result["startAddress"]; ok {
-		ipinfo.Range = startAddress.(string)
+	if startAddress, ok := result["startAddress"].(string); ok {
+		ipinfo.Range = startAddress
 	}
 
-	if endAddress, ok := result["endAddress"]; ok {
-		ipinfo.Range += " - " + endAddress.(string)
+	if endAddress, ok := result["endAddress"].(string); ok {
+		ipinfo.Range += " - " + endAddress
 	}
 
-	if name, ok := result["name"]; ok {
-		ipinfo.NetName = name.(string)
+	if name, ok := result["name"].(string); ok {
+		ipinfo.NetName = name
 	}
 
-	if cidrs, ok := result["cidr0_cidrs"]; ok {
-		for _, cidr := range cidrs.([]interface{}) {
-			cidrMap := cidr.(map[string]interface{})
-			if v4prefix, ok := cidrMap["v4prefix"]; ok {
-				length := cidrMap["length"].(float64)
-				ipinfo.CIDR = fmt.Sprintf("%s/%d", v4prefix.(string), int(length))
-			} else if v6prefix, ok := cidrMap["v6prefix"]; ok {
-				length := cidrMap["length"].(float64)
-				ipinfo.CIDR = fmt.Sprintf("%s/%d", v6prefix.(string), int(length))
+	if cidrs, ok := result["cidr0_cidrs"].([]interface{}); ok {
+		for _, cidr := range cidrs {
+			cidrMap, ok := cidr.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			length, ok := cidrMap["length"].(float64)
+			if !ok {
+				continue
+			}
+			if prefix, ok := cidrMap["v4prefix"].(string); ok {
+				ipinfo.CIDR = fmt.Sprintf("%s/%d", prefix, int(length))
+			} else if prefix, ok := cidrMap["v6prefix"].(string); ok {
+				ipinfo.CIDR = fmt.Sprintf("%s/%d", prefix, int(length))
 			}
 		}
 	}
 
-	if type_, ok := result["type"]; ok && type_ != nil {
-		ipinfo.Networktype = type_.(string)
+	if networkType, ok := result["type"].(string); ok {
+		ipinfo.Networktype = networkType
 	} else {
 		ipinfo.Networktype = "Unknown"
 	}
 
-	if country, ok := result["country"]; ok {
-		ipinfo.Country = country.(string)
+	if country, ok := result["country"].(string); ok {
+		ipinfo.Country = country
 	}
 
-	if status, ok := result["status"]; ok {
-		ipinfo.IPStatus = make([]string, len(status.([]interface{})))
-		for i, s := range status.([]interface{}) {
-			ipinfo.IPStatus[i] = s.(string)
-		}
-	}
+	ipinfo.IPStatus = rdapStringSlice(result["status"])
 
-	if events, ok := result["events"]; ok {
-		for _, event := range events.([]interface{}) {
-			eventInfo := event.(map[string]interface{})
-			switch eventInfo["eventAction"].(string) {
+	if events, ok := result["events"].([]interface{}); ok {
+		for _, event := range events {
+			eventInfo, ok := event.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			action, ok := eventInfo["eventAction"].(string)
+			if !ok {
+				continue
+			}
+			date, ok := eventInfo["eventDate"].(string)
+			if !ok {
+				continue
+			}
+			switch action {
 			case "registration":
-				ipinfo.CreationDate = eventInfo["eventDate"].(string)
+				ipinfo.CreationDate = date
 			case "last changed":
-				ipinfo.UpdatedDate = eventInfo["eventDate"].(string)
+				ipinfo.UpdatedDate = date
 			}
 		}
 	}
@@ -216,31 +236,60 @@ func ParseRDAPResponseforIP(result map[string]interface{}) (IPInfo, error) {
 func ParseRDAPResponseforASN(result map[string]interface{}) (ASNInfo, error) {
 	asninfo := ASNInfo{}
 
-	if handle, ok := result["handle"]; ok {
-		asninfo.ASN = handle.(string)
+	if handle, ok := result["handle"].(string); ok {
+		asninfo.ASN = handle
 	}
 
-	if name, ok := result["name"]; ok {
-		asninfo.ASName = name.(string)
+	if name, ok := result["name"].(string); ok {
+		asninfo.ASName = name
 	}
 
-	if status, ok := result["status"]; ok {
-		asninfo.ASStatus = make([]string, len(status.([]interface{})))
-		for i, s := range status.([]interface{}) {
-			asninfo.ASStatus[i] = s.(string)
-		}
-	}
+	asninfo.ASStatus = rdapStringSlice(result["status"])
 
-	if events, ok := result["events"]; ok {
-		for _, event := range events.([]interface{}) {
-			eventInfo := event.(map[string]interface{})
-			switch eventInfo["eventAction"].(string) {
+	if events, ok := result["events"].([]interface{}); ok {
+		for _, event := range events {
+			eventInfo, ok := event.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			action, ok := eventInfo["eventAction"].(string)
+			if !ok {
+				continue
+			}
+			date, ok := eventInfo["eventDate"].(string)
+			if !ok {
+				continue
+			}
+			switch action {
 			case "registration":
-				asninfo.CreationDate = eventInfo["eventDate"].(string)
+				asninfo.CreationDate = date
 			case "last changed":
-				asninfo.UpdatedDate = eventInfo["eventDate"].(string)
+				asninfo.UpdatedDate = date
 			}
 		}
 	}
 	return asninfo, nil
+}
+
+func rdapStringSlice(value interface{}) []string {
+	items, ok := value.([]interface{})
+	if !ok {
+		return nil
+	}
+	strings := make([]string, 0, len(items))
+	for _, item := range items {
+		if value, ok := item.(string); ok {
+			strings = append(strings, value)
+		}
+	}
+	return strings
+}
+
+func rdapContainsString(value interface{}, target string) bool {
+	for _, item := range rdapStringSlice(value) {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }

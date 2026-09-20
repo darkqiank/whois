@@ -301,7 +301,7 @@ func (rm *RdapMap) LoadBootstrap(bootstrap RDAPBootstrap) error {
 // mergeServices 将services中的数据按照特定的规则合并到给定的map中
 func mergeServices(services [][][]string, targetMap map[string]string) {
 	for _, service := range services {
-		if len(service[1]) > 0 {
+		if len(service) > 1 && len(service[1]) > 0 {
 			value := service[1][0] // 使用第二个子数组的第一个元素作为值
 			for _, key := range service[0] {
 				targetMap[key] = value

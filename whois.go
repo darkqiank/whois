@@ -21,6 +21,7 @@ package whois
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -167,8 +168,12 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 		server = strings.ToLower(servers[0])
 		port = defaultWhoisPort
 	} else {
+		serverMap := c.currentServerMap()
+		if serverMap == nil {
+			return "", errors.New("whois: server map is not initialized")
+		}
 		ext := getExtension(domain)
-		if v, ok := c.serverMap.GetWhoisServer(ext); ok {
+		if v, ok := serverMap.GetWhoisServer(ext); ok {
 			// 如果tld存在于map中，更新server变量为map中对应的值
 			server = v
 			port = defaultWhoisPort
@@ -182,7 +187,7 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 				return "", fmt.Errorf("%w: %s", ErrWhoisServerNotFound, domain)
 			}
 			// 将最新查询到的tld服务器存到map中
-			c.serverMap.SetWhoisServer(ext, server)
+			serverMap.SetWhoisServer(ext, server)
 		}
 	}
 
@@ -222,9 +227,11 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 		}
 	}
 
-	if value, ok := c.serverMap.GetRewriteServer(server); ok {
-		// 如果键存在于map中，更新server变量为map中对应的值
-		server = value
+	if serverMap := c.currentServerMap(); serverMap != nil {
+		if value, ok := serverMap.GetRewriteServer(server); ok {
+			// 如果键存在于map中，更新server变量为map中对应的值
+			server = value
+		}
 	}
 
 	deadline := time.Now().Add(c.timeout)
@@ -257,6 +264,13 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	// c.elapsed = time.Since(start)
 
 	return string(buffer), nil
+}
+
+func (c *Client) currentServerMap() *serverMap {
+	if c.serverMap != nil {
+		return c.serverMap
+	}
+	return serverMapInstance
 }
 
 // getServer returns server from whois data

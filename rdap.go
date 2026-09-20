@@ -58,6 +58,9 @@ func (c *RDAPClient) RDAP(q string) (map[string]interface{}, error) {
 	if q == "" {
 		return nil, ErrDomainEmpty
 	}
+	if rdapMapInstance == nil {
+		return nil, errors.New("rdap: server map is not initialized")
+	}
 	_, url, exists := rdapMapInstance.GetRdapServer(q)
 	fmt.Println(url)
 	if exists {
@@ -113,6 +116,9 @@ func (c *RDAPClient) rdapRawQuery(url string) (map[string]interface{}, error) {
 	err = json.Unmarshal(buf.Bytes(), &result)
 	if err != nil {
 		return nil, fmt.Errorf("rdap: return data (%s) not json: (%s)", url, err)
+	}
+	if result == nil {
+		return nil, fmt.Errorf("rdap: return data (%s) is not a JSON object", url)
 	}
 	return result, nil
 }

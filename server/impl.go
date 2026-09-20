@@ -25,6 +25,9 @@ func GetRDAP(domain string, disableReferral bool) (parser.RDAPInfo, error) {
 	c := whois.NewRDAPClient()
 	c.SetDisableReferral(disableReferral)
 	raw, err := c.RDAP(domain)
+	if err != nil {
+		return parser.RDAPInfo{}, err
+	}
 
 	result, err1 := parser.ParseRDAPResponse(raw)
 	if err1 != nil {
